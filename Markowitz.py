@@ -46,6 +46,8 @@ df = portfolio_data = data.pivot_table(
 )
 df_returns = df.pct_change().fillna(0)
 
+# print(df)
+
 
 """
 Problem 1: 
@@ -66,7 +68,12 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
+        # Calculate equal weights
+        equal_weight = 1 / len(assets)
+        # print(equal_weight)
 
+        # Assign equal weights to each asset
+        self.portfolio_weights[assets] = equal_weight
         """
         TODO: Complete Task 1 Above
         """
@@ -117,6 +124,15 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        for i in range(self.lookback + 1, len(df)):
+            cov_matrix = df_returns[assets].iloc[i - self.lookback : i].cov().values
+            inv_volatility = 1 / np.sqrt(np.diag(cov_matrix))
+            weights = inv_volatility / inv_volatility.sum()
+            self.portfolio_weights.loc[df.index[i], assets] = weights
+            # print(i, ' ', weights)
+            # print(cov_matrix)
+            # print(inv_volatility)
+            # print(weights)
 
         """
         TODO: Complete Task 2 Above
@@ -193,7 +209,17 @@ class MeanVariancePortfolio:
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
                 w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # Objective function: maximize return and minimize risk
+                model.setObjective(w @ mu - (gamma / 2) * (w @ Sigma @ w), gp.GRB.MAXIMIZE)
+                # Constraint: sum of weights should be 1
+                model.addConstr(w.sum() == 1)
+                model.optimize()
+
+                if model.status == gp.GRB.OPTIMAL or model.status == gp.GRB.SUBOPTIMAL:
+                    solution = w.X
+                else:
+                    solution = np.zeros(n)
 
                 """
                 TODO: Complete Task 3 Below

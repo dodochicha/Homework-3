@@ -42,6 +42,7 @@ Bdf = portfolio_data = data.pivot_table(
     index="Date", columns="Symbol", values="Adj Close"
 )
 df = Bdf.loc["2019-01-01":"2024-04-01"]
+df_returns = df.pct_change().fillna(0)
 
 """
 Strategy Creation
@@ -62,21 +63,77 @@ class MyPortfolio:
         self.lookback = lookback
         self.gamma = gamma
 
+    # def calculate_weights(self):
+    #     # Get the assets by excluding the specified column
+    #     assets = self.price.columns[self.price.columns != self.exclude]
+
+    #     # Calculate the portfolio weights
+    #     self.portfolio_weights = pd.DataFrame(
+    #         index=self.price.index, columns=self.price.columns
+    #     )
+
+    #     """
+    #     TODO: Complete Task 4 Below
+    #     """
+
+    #     """
+    #     TODO: Complete Task 4 Above
+    #     """
+
+    #     self.portfolio_weights.ffill(inplace=True)
+    #     self.portfolio_weights.fillna(0, inplace=True)
     def calculate_weights(self):
+        print(self.price)
+        print(self.returns)
         # Get the assets by excluding the specified column
         assets = self.price.columns[self.price.columns != self.exclude]
 
         # Calculate the portfolio weights
-        self.portfolio_weights = pd.DataFrame(
-            index=self.price.index, columns=self.price.columns
-        )
+        self.portfolio_weights = pd.DataFrame(index=self.price.index, columns=self.price.columns)
 
         """
-        TODO: Complete Task 4 Below
+        TODO: Complete Task 2 Below
         """
+        # Calculate equal weights
+        equal_weight = 1 / len(assets)
+        self.portfolio_weights[assets] = 0.0
+        # print(self.price)
+        # for i in range(len(self.price[assets])-1):
+        #     max_return = -10000
+        #     max_asset = 'XLE'
+        #     max_asset2 = 'XLV'
+        #     max_asset3 = 'XLY'
+        #     for asset in assets:
+        #         if self.price[asset][i+1] - self.price[asset][i] > max_return:
+        #             max_return = self.price[asset][i+1] - self.price[asset][i]
+        #             max_asset3 = max_asset2
+        #             max_asset2 = max_asset
+        #             max_asset = asset
+        #     self.portfolio_weights[max_asset][i] = 1/3
+        #     self.portfolio_weights[max_asset2][i] = 1/3
+        #     self.portfolio_weights[max_asset3][i] = 1/3
+        # for asset in assets:
+        #     self.portfolio_weights[asset][len(self.price)-1] = equal_weight
+        for i in range(len(self.price[assets])):
+            num = 0
+            for asset in assets:
+                if self.returns[asset][i] > 0.001:
+                    num = num + 1
+            if num != 0:
+                for asset in assets:
+                    if self.returns[asset][i] > 0.001:
+                        self.portfolio_weights[asset][i] = 1/num
+            else:
+                for asset in assets:
+                    self.portfolio_weights[asset][i] = equal_weight
+        for asset in assets:
+            self.portfolio_weights[asset][len(self.price)-1] = equal_weight
+        # self.portfolio_weights[assets] = equal_weight     
+
+        # Assign equal weights to each asset
 
         """
-        TODO: Complete Task 4 Above
+        TODO: Complete Task 2 Above
         """
 
         self.portfolio_weights.ffill(inplace=True)
@@ -88,8 +145,22 @@ class MyPortfolio:
             self.calculate_weights()
 
         # Calculate the portfolio returns
-        self.portfolio_returns = self.returns.copy()
-        assets = self.price.columns[self.price.columns != self.exclude]
+        self.portfolio_returns = df_returns.copy()
+        assets = df.columns[df.columns != self.exclude]
+        self.portfolio_returns["Portfolio"] = (
+            self.portfolio_returns[assets]
+            .mul(self.portfolio_weights[assets])
+            .sum(axis=1)
+        )
+
+    def calculate_portfolio_returns(self):
+        # Ensure weights are calculated
+        if not hasattr(self, "portfolio_weights"):
+            self.calculate_weights()
+
+        # Calculate the portfolio returns
+        self.portfolio_returns = df_returns.copy()
+        assets = df.columns[df.columns != self.exclude]
         self.portfolio_returns["Portfolio"] = (
             self.portfolio_returns[assets]
             .mul(self.portfolio_weights[assets])
@@ -162,7 +233,9 @@ class AssignmentJudge:
 
     def check_sharp_ratio_greater_than_one(self):
         if not self.check_portfolio_position(self.mp[0]):
+            print('exceed 1')
             return 0
+        print(self.report_metrics(df, self.mp))
         if self.report_metrics(df, self.mp)[1] > 1:
             print("Problem 4.1 Success - Get 10 points")
             return 10
@@ -171,7 +244,10 @@ class AssignmentJudge:
         return 0
 
     def check_sharp_ratio_greater_than_spy(self):
+        print(self.report_metrics(Bdf, self.Bmp)[1])
+        print(self.report_metrics(Bdf, self.Bmp)[0])
         if not self.check_portfolio_position(self.mp[0]):
+            print('exceed 1')
             return 0
         if (
             self.report_metrics(Bdf, self.Bmp)[1]
@@ -184,6 +260,9 @@ class AssignmentJudge:
         return 0
 
     def check_portfolio_position(self, portfolio_weights):
+        # print(self.mp[0])
+        print(portfolio_weights)
+        print(portfolio_weights.sum(axis=1))
         if (portfolio_weights.sum(axis=1) <= 1.01).all():
             return True
         print("Portfolio Position Exceeds 1. No Leverage.")
